@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Blood Pressure Guide</title>
+    <!-- Chosen Palette: Calm Harmony (Warm Neutrals, Soft Blues, Greens, and Yellows) -->
+    <!-- Application Structure Plan: A task-oriented, single-page application with all content loaded at once, allowing for continuous scrolling. The structure prioritizes immediate user utility with an interactive calculator at the top, followed by thematic sections: 'Understand BP', 'High BP', 'Low BP', 'Manage & Prevent', and 'Recent Developments'. This non-linear structure allows users to directly access the information most relevant to them, such as understanding their numbers, learning about risks, finding actionable advice, or exploring the latest research. This is more user-friendly than the original report's linear format because it supports self-directed exploration and quick answers. New sections on diagnosis, monitoring, and screening are integrated into the 'Understand BP' and 'Manage & Prevent' tabs, and a dedicated 'Recent Developments' tab now houses comprehensive research updates and citations. Contact information has been added to the footer. -->
+    <!-- Visualization & Content Choices: 
+        - BP Categories Table -> Interactive Bar Chart (Chart.js): Goal is to inform and compare. Interaction involves clicking bars to display detailed info, which is more engaging and visual than a static table. It helps users quickly grasp the spectrum of categories. Library: Chart.js (Canvas). The textual descriptions of categories now reflect 2024 ESC guidelines and age-based nuances.
+        - Systolic/Diastolic Input -> Interactive Calculator: Goal is to provide an immediate, practical tool. Users input their numbers and get an instant classification based on updated guidelines. This directly answers the user's primary question ("What do my numbers mean?"). Method: HTML/JS.
+        - Long lists (Causes, Risks, Complications, Lifestyle, Medications, Screening, Recent Developments) -> Interactive Cards, Accordions, and detailed text blocks with structured lists: Goal is to organize and inform without overwhelming the user. Click-to-reveal interactions and clearly structured paragraphs break down dense text into manageable chunks, improving readability and user control. New tables for "Recent Developments" are presented as static HTML, ensuring clarity without overcomplicating dynamic rendering. Method: HTML/Tailwind + JS.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .content-section { margin-bottom: 2rem; } /* Add spacing between sections */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 45vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .info-card {
+             transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
+        }
+        .accordion-button.active .accordion-icon {
+            transform: rotate(180deg);
+        }
+        .accordion-icon {
+            transition: transform 0.3s ease;
+        }
+        .data-table th, .data-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+            color: #4b5563;
+        }
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <header class="bg-white shadow-sm">
+        <div class="container mx-auto px-4 py-6 text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-blue-800">Your Guide to Blood Pressure</h1>
+            <p class="mt-2 text-lg text-gray-600">Understand your numbers, manage your health, and explore recent advancements.</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 md:p-8">
+        
+        <section id="calculator" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8">
+            <h2 class="text-2xl font-bold text-center mb-4 text-gray-700">Check Your Blood Pressure</h2>
+            <p class="text-center text-gray-600 mb-6 max-w-2xl mx-auto">Enter your blood pressure numbers below to see which category you fall into. This tool is for informational purposes only. Consult a healthcare professional for medical advice and age-specific guidelines.</p>
+            <div class="flex flex-col md:flex-row items-center justify-center gap-4">
+                <div>
+                    <label for="systolic" class="block text-sm font-medium text-gray-700 mb-1">Systolic (Upper Number)</label>
+                    <input type="number" id="systolic" placeholder="e.g., 120" class="w-full md:w-48 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="diastolic" class="block text-sm font-medium text-gray-700 mb-1">Diastolic (Lower Number)</label>
+                    <input type="number" id="diastolic" placeholder="e.g., 80" class="w-full md:w-48 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <button id="check-bp-btn" class="w-full md:w-auto mt-4 md:mt-0 self-end px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">Check Now</button>
+            </div>
+            <div id="bp-result" class="mt-6 text-center text-lg font-medium p-4 rounded-lg" style="display: none;"></div>
+        </section>
+
+        <section id="understand" class="content-section bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+            <h2 class="text-3xl font-bold mb-4 text-center text-gray-800">Understanding Blood Pressure</h2>
+            <p class="text-center text-gray-600 mb-6 max-w-3xl mx-auto">Blood pressure (BP) is the force exerted by circulating blood on the walls of arteries. It is measured in millimeters of mercury (mmHg) using a cuff (sphygmomanometer) on the upper arm. A reading has two numbers: systolic (pressure when the heart beats) and diastolic (pressure when the heart relaxes). Proper technique and multiple readings are important for accuracy.</p>
+            
+            <h3 class="text-2xl font-bold mb-4 text-center text-gray-800">Normal Ranges and Classification</h3>
+            <p class="text-center text-gray-600 mb-6 max-w-3xl mx-auto">According to the 2024 European Society of Cardiology (ESC) guidelines, normal blood pressure targets are below 130/80 mm Hg for individuals under 65 years and below 140/80 mm Hg for those aged 65–79 years. Explore the different categories below.</p>
+            <div class="chart-container">
+                <canvas id="bpChart"></canvas>
+            </div>
+            <div id="chart-info" class="mt-8 p-6 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+                <h3 id="info-title" class="text-2xl font-bold text-blue-800 mb-2">Click a bar to learn more</h3>
+                <p id="info-text" class="text-gray-700">Each bar on the chart represents a different blood pressure category. Click one to see its definition, numerical range, and what it means for your health.</p>
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-gray-200">
+                <h3 class="text-2xl font-bold mb-4 text-center text-gray-800">Diagnosis and Monitoring</h3>
+                <p class="text-center text-gray-600 mb-6 max-w-3xl mx-auto">Accurate diagnosis of blood pressure conditions requires careful measurement and monitoring over time, as a single reading isn't enough. Explore the methods and recommendations for tracking your BP.</p>
+                <div class="space-y-4 max-w-3xl mx-auto">
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h4 class="font-semibold text-gray-700 mb-2">Repeated Measurements</h4>
+                        <p class="text-gray-600 text-sm">Diagnosis of hypertension requires repeated BP measurements. Guidelines recommend averaging ≥2 readings on separate visits. At the first measurement, BP should be checked in both arms; thereafter, the higher arm is used.</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h4 class="font-semibold text-gray-700 mb-2">Home and Ambulatory Monitoring</h4>
+                        <p class="text-gray-600 text-sm">For example, if office readings are elevated, doctors often advise patients to use a validated home BP monitor daily for 1–2 weeks. Alternatively, 24-hour ambulatory BP monitoring (wearable cuff) can confirm hypertension and reveal “white-coat” (clinic-only) or “masked” (normal clinic, high at home) hypertension. These monitors give more reliable assessment of usual BP and help guide treatment. Cuffs should be checked periodically for accuracy.</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h4 class="font-semibold text-gray-700 mb-2">Routine Screening Recommendations</h4>
+                        <p class="text-gray-600 text-sm">For routine screening, most adults should have BP measured at least once a year (or every 2 years if persistently low-normal), and more often if any risk factors or elevated readings are present. The NHS advises anyone ≥40 should have BP measured if not checked in the past 5 years.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="high-bp" class="content-section bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+            <h2 class="text-3xl font-bold mb-2 text-center text-gray-800">High Blood Pressure (Hypertension)</h2>
+            <p class="text-center text-gray-600 mb-8 max-w-3xl mx-auto">Often called the "silent killer," hypertension usually has no symptoms but can lead to serious health problems if left untreated. Explore its causes, risk factors, and the damage it can cause.</p>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4 text-center">Causes & Risk Factors</h3>
+                    <p class="text-gray-600 mb-4 text-center text-sm">Most hypertension (≈90–95%) is primary (essential) and has no single identifiable cause. Explore the factors that increase your risk.</p>
+                    <div id="high-bp-risk-factors-accordion" class="space-y-3"></div>
+                </div>
+                 <div>
+                    <h3 class="text-2xl font-semibold mb-4 text-center">Serious Health Complications</h3>
+                     <p class="text-gray-600 mb-4 text-center text-sm">Over time, untreated high BP damages blood vessels and vital organs, significantly increasing the risk of severe health issues like heart attack, stroke, and kidney problems.</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="info-card flex items-center p-3 bg-red-50 rounded-lg border border-red-200">
+                            <span class="text-2xl mr-3">❤️</span>
+                            <span class="font-medium text-red-800">Heart Attack</span>
+                        </div>
+                        <div class="info-card flex items-center p-3 bg-red-50 rounded-lg border border-red-200">
+                            <span class="text-2xl mr-3">🧠</span>
+                            <span class="font-medium text-red-800">Stroke</span>
+                        </div>
+                        <div class="info-card flex items-center p-3 bg-red-50 rounded-lg border border-red-200">
+                            <span class="text-2xl mr-3">💔</span>
+                            <span class="font-medium text-red-800">Heart Failure</span>
+                        </div>
+                        <div class="info-card flex items-center p-3 bg-red-50 rounded-lg border border-red-200">
+                            <span class="text-2xl mr-3">💧</span>
+                            <span class="font-medium text-red-800">Kidney Disease</span>
+                        </div>
+                        <div class="info-card flex items-center p-3 bg-red-50 rounded-lg border border-red-200">
+                            <span class="text-2xl mr-3">👁️</span>
+                            <span class="font-medium text-red-800">Vision Loss</span>
+                        </div>
+                        <div class="info-card flex items-center p-3 bg-red-50 rounded-lg border border-red-200">
+                            <span class="text-2xl mr-3">👤</span>
+                            <span class="font-medium text-red-800">Sexual Dysfunction</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-12 pt-8 border-t border-gray-200">
+                <h3 class="text-2xl font-bold mb-4 text-center text-gray-800">Symptoms of Severe High BP</h3>
+                <p class="text-center text-gray-600 mb-6 max-w-3xl mx-auto">While typically asymptomatic, very high blood pressure can cause acute symptoms that warrant immediate medical attention.</p>
+                <ul class="list-disc list-inside text-gray-700 space-y-2 max-w-md mx-auto bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <li>Headache</li>
+                    <li>Chest pain</li>
+                    <li>Shortness of breath</li>
+                    <li>Nosebleeds</li>
+                    <li>Blurred vision (indicates Hypertensive Crisis)</li>
+                    <li>Numbness or weakness (indicates Hypertensive Crisis)</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="low-bp" class="content-section bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+             <h2 class="text-3xl font-bold mb-2 text-center text-gray-800">Low Blood Pressure (Hypotension)</h2>
+             <p class="text-center text-gray-600 mb-8 max-w-3xl mx-auto">While less common, low blood pressure (typically &lt;90/60 mmHg) can cause symptoms like dizziness and fainting. It is often a sign of an underlying condition. Learn about its types, symptoms, and causes.</p>
+             <div class="grid md:grid-cols-2 gap-8">
+                <div id="low-bp-causes-and-risk-factors">
+                    <h3 class="text-2xl font-semibold mb-4 text-center">Common Causes & Risk Factors</h3>
+                     <p class="text-gray-600 mb-4 text-center text-sm">Hypotension can be caused by various factors, from simple dehydration to serious underlying conditions. Risk factors increase with age and pre-existing health issues.</p>
+                     <div id="low-bp-causes-accordion" class="space-y-4"></div>
+                     <div class="p-4 bg-blue-100 rounded-lg border border-blue-300 mt-4">
+                        <h4 class="font-semibold text-blue-800 mb-2">Risk Factors for Low Blood Pressure:</h4>
+                        <ul class="list-disc list-inside text-gray-700 text-sm space-y-1">
+                            <li>Older age (especially >65, often with orthostatic hypotension)</li>
+                            <li>Existing chronic diseases (e.g., Parkinson’s disease, diabetes)</li>
+                            <li>Heavy alcohol or drug use</li>
+                        </ul>
+                    </div>
+                </div>
+                 <div id="low-bp-symptoms-and-complications">
+                    <h3 class="text-2xl font-semibold mb-4 text-center">Key Symptoms & Complications</h3>
+                    <p class="text-gray-600 mb-4 text-center text-sm">Symptoms of low BP are related to poor blood flow to the organs. Severe hypotension can lead to serious complications.</p>
+                    <div class="space-y-4">
+                        <div class="flex items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <span class="text-blue-500 font-bold mr-3">✓</span>
+                            <span class="font-medium text-gray-700">Dizziness or Lightheadedness</span>
+                        </div>
+                        <div class="flex items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <span class="text-blue-500 font-bold mr-3">✓</span>
+                            <span class="font-medium text-gray-700">Fainting (Syncope)</span>
+                        </div>
+                        <div class="flex items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <span class="text-blue-500 font-bold mr-3">✓</span>
+                            <span class="font-medium text-gray-700">Blurred or Fading Vision</span>
+                        </div>
+                        <div class="flex items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <span class="text-blue-500 font-bold mr-3">✓</span>
+                            <span class="font-medium text-gray-700">Nausea</span>
+                        </div>
+                        <div class="flex items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <span class="text-blue-500 font-bold mr-3">✓</span>
+                            <span class="font-medium text-gray-700">Fatigue</span>
+                        </div>
+                        <div class="flex items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <span class="text-blue-500 font-bold mr-3">✓</span>
+                            <span class="font-medium text-gray-700">Lack of Concentration</span>
+                        </div>
+                    </div>
+                    <div class="mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                        <h4 class="font-semibold text-red-800">Potential Complications:</h4>
+                        <ul class="list-disc list-inside text-gray-700 text-sm mt-2">
+                            <li>Injuries from fainting or falls</li>
+                            <li>Organ hypoxia (lack of oxygen to organs)</li>
+                            <li>Multi-organ failure (in extreme cases of shock)</li>
+                        </ul>
+                    </div>
+                </div>
+             </div>
+        </section>
+
+        <section id="manage" class="content-section bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+            <h2 class="text-3xl font-bold mb-2 text-center text-gray-800">Management & Prevention</h2>
+            <p class="text-center text-gray-600 mb-8 max-w-3xl mx-auto">You have the power to manage your blood pressure. A heart-healthy lifestyle is the foundation of prevention and control, sometimes supplemented by medication. Learn about strategies to maintain optimal blood pressure.</p>
+            <div>
+                <h3 class="text-2xl font-semibold mb-6 text-center">Lifestyle Modifications</h3>
+                <p class="text-center text-gray-600 mb-6 max-w-3xl mx-auto">These changes are often the first-line strategy for preventing or lowering blood pressure and are crucial even if medication is required.</p>
+                <div id="lifestyle-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                </div>
+            </div>
+            <div class="mt-12 pt-8 border-t border-gray-200">
+                 <h3 class="text-2xl font-semibold mb-6 text-center">Medical Treatments</h3>
+                 <p class="text-center text-gray-600 mb-6 max-w-3xl mx-auto">When lifestyle changes aren't enough, various medications can help control blood pressure. These should always be taken as prescribed by a healthcare professional. Many patients require combination therapy to achieve target BP, generally aiming for &lt;130/80 mmHg.</p>
+                 <div id="medication-accordion" class="space-y-3 max-w-4xl mx-auto"></div>
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-gray-200">
+                <h3 class="text-2xl font-bold mb-4 text-center text-gray-800">Screening and High-Risk Groups</h3>
+                <p class="text-center text-gray-600 mb-6 max-w-3xl mx-auto">Regular blood pressure screening is vital for all adults, especially those in higher-risk categories. Understanding your risk factors can help you and your doctor plan appropriate monitoring.</p>
+                <div class="space-y-4 max-w-3xl mx-auto">
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h4 class="font-semibold text-gray-700 mb-2">Who should be screened?</h4>
+                        <p class="text-gray-600 text-sm">Most guidelines recommend periodic BP screening for all adults. Adults should have BP checked at least once a year. People with ideal BP and no risk factors may extend to every 2 years, but those over age 40 should be screened at least annually. Persons with elevated BP (120–129/&lt;80) or any risk factors should have more frequent checks.</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h4 class="font-semibold text-gray-700 mb-2">Higher-Risk Groups</h4>
+                        <p class="text-gray-600 text-sm">Higher-risk groups include: older adults; people who are overweight or obese; those with diabetes or chronic kidney disease; individuals with high dietary salt or alcohol intake; smokers; and certain ethnicities (e.g. Black African/Caribbean, South Asian). A family history of hypertension also raises risk. Women who have had pregnancy-related hypertension (e.g. preeclampsia) should be monitored more closely. In at-risk individuals, home self-monitoring or ambulatory monitoring can be used for regular follow-up.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="recent-developments" class="content-section bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+            <h2 class="text-3xl font-bold mb-4 text-center text-gray-800">Recent Developments & Research (2025)</h2>
+            <p class="text-center text-gray-600 mb-6 max-w-3xl mx-auto">Stay informed on the latest breakthroughs and evolving understanding in blood pressure management, including new treatments and updated guidelines.</p>
+
+            <div class="mb-8 p-6 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg max-w-4xl mx-auto">
+                <h3 class="text-2xl font-bold text-blue-800 mb-3">Key Points</h3>
+                <ul class="list-disc list-inside text-gray-700 space-y-2">
+                    <li>Blood pressure is the force of blood against artery walls, measured in mm Hg as two numbers: systolic (heart beats) and diastolic (heart rests).</li>
+                    <li>Research suggests normal ranges are below 130/80 mm Hg for under 65s and below 140/80 mm Hg for 65–79s, per 2024 ESC guidelines.</li>
+                    <li>It seems likely that high blood pressure (above 140/90 mm Hg) can lead to heart disease, stroke, and kidney issues if untreated.</li>
+                    <li>The evidence leans toward low blood pressure (below 90/60 mm Hg) causing dizziness or fainting, though it’s not always a concern.</li>
+                    <li>New treatments in 2025, like drugs reducing systolic pressure by 15 points, show promise, with AHA/ACC guidelines expected soon.</li>
+                </ul>
+            </div>
+
+            <div class="mt-8 pt-8 border-t border-gray-200">
+                <h3 class="text-2xl font-bold mb-4 text-center text-gray-800">Comprehensive Overview of Blood Pressure</h3>
+                <p class="text-gray-700 mb-6">Blood pressure, a critical indicator of cardiovascular health, is the force exerted by circulating blood against the walls of the arteries as the heart pumps blood through the body. It is measured in millimeters of mercury (mm Hg) and expressed as two numbers: systolic pressure, the higher number representing the pressure when the heart beats, and diastolic pressure, the lower number indicating the pressure when the heart rests between beats. This measurement is essential for assessing how well the heart and blood vessels function, and it plays a pivotal role in diagnosing and managing various health conditions.</p>
+
+                <h4 class="text-xl font-semibold mb-3 text-gray-800">Blood Pressure Measurement and Ranges</h4>
+                <p class="text-gray-700 mb-4">Blood pressure is typically measured using a sphygmomanometer, and accurate readings are crucial for diagnosis. The 2024 European Society of Cardiology (ESC) guidelines, one of the most recent and authoritative sources as of June 8, 2025, provide updated classifications and targets:</p>
+                <ul class="list-disc list-inside text-gray-700 mb-4 ml-4 space-y-1">
+                    <li>A target blood pressure of less than 130/80 mm Hg for individuals under 65 years.</li>
+                    <li>A target of less than 140/80 mm Hg for those aged 65 to 79 years.</li>
+                </ul>
+                <p class="text-gray-700 mb-4">The ESC also introduced new categories for blood pressure classification:</p>
+                <div class="overflow-x-auto mb-6">
+                    <table class="w-full data-table rounded-lg shadow-sm">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Systolic mm Hg</th>
+                                <th>Diastolic mm Hg</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Normal (under 65)</td><td>Less than 130</td><td>Less than 80</td><td>Per 2024 ESC guidelines</td></tr>
+                            <tr><td>Normal (65–79)</td><td>Less than 140</td><td>Less than 80</td><td>Per 2024 ESC guidelines</td></tr>
+                            <tr><td>Elevated</td><td>120–129</td><td>Less than 80</td><td></td></tr>
+                            <tr><td>Hypertension Stage 1</td><td>130–139</td><td>80–89</td><td></td></tr>
+                            <tr><td>Hypertension Stage 2</td><td>140 or higher</td><td>90 or higher</td><td></td></tr>
+                            <tr><td>Hypertensive Crisis</td><td>Higher than 180</td><td>Higher than 120</td><td>Requires immediate medical attention</td></tr>
+                            <tr><td>Low Blood Pressure (Hypotension)</td><td>Less than 90</td><td>Less than 60</td><td>May cause symptoms like dizziness, varies by individual</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-gray-700 mb-4">For low blood pressure, or hypotension, the general range is below 90/60 mm Hg, though this can vary based on individual health and symptoms. The American Heart Association (AHA) and other sources confirm this threshold, noting that symptoms like dizziness, fainting, and fatigue may indicate a need for medical evaluation.</p>
+
+                <h4 class="text-xl font-semibold mb-3 text-gray-800">Health Implications and Risks</h4>
+                <p class="text-gray-700 mb-4">High blood pressure, often termed the "silent killer," typically presents no symptoms but can lead to severe health issues if untreated. Research consistently shows it increases the risk of heart disease, stroke, kidney problems, and vision loss. For instance, the CDC reports that in 2022, high blood pressure was a primary or contributing cause of 685,875 deaths in the United States, highlighting its public health impact.</p>
+                <p class="text-gray-700 mb-4">Low blood pressure, while less commonly discussed, can cause symptoms such as confusion, nausea, and blurred vision, especially if severe. Causes include prolonged bed rest, dehydration, certain medications, and life-threatening conditions like septic shock. However, not all cases require treatment, and individual tolerance varies.</p>
+
+                <h4 class="text-xl font-semibold mb-3 text-gray-800">Recent Research and Developments in 2025</h4>
+                <p class="text-gray-700 mb-4">As of June 8, 2025, several studies and developments have advanced the understanding and management of blood pressure:</p>
+                <div class="overflow-x-auto mb-6">
+                    <table class="w-full data-table rounded-lg shadow-sm">
+                        <thead>
+                            <tr>
+                                <th>Recent Development (2025)</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>New Drug (Lorundrostat)</td><td>Reduces systolic BP by 15 points compared to 7-point placebo reduction, showing promise for uncontrolled hypertension.</td></tr>
+                            <tr><td>Six-Month Injection</td><td>A new clinical trial in May 2025 showed that a six-month injection could lead to meaningful blood pressure reductions, potentially revolutionizing treatment approaches.</td></tr>
+                            <tr><td>Remote Monitoring Success</td><td>Research published in 2025 found that participants in a remote hypertension program maintained goal systolic blood pressure in 90% of cases up to 42 months post-enrollment.</td></tr>
+                            <tr><td>DASH Diet Recognition</td><td>Named the "Best Heart-Healthy Diet" and "Best Diet for High Blood Pressure" in January 2025, with multiple studies confirming its benefits.</td></tr>
+                            <tr><td>Cognitive Benefits</td><td>A January 2025 study showed that intensive blood pressure control for 3.5 years reduces the risk of cognitive impairment.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-gray-700 mb-4">Other notable developments include new themes in Hypertension Research (e.g., "implementation hypertension" and "morning hypertension") and geographical prevalence insights from the CDC.</p>
+
+                <h4 class="text-xl font-semibold mb-3 text-gray-800">Management Strategies</h4>
+                <p class="text-gray-700 mb-4">Managing blood pressure involves both lifestyle changes and medical interventions:</p>
+                <ul class="list-disc list-inside text-gray-700 mb-4 ml-4 space-y-1">
+                    <li>**Lifestyle Changes:** Adopting a heart-healthy diet like the DASH diet, engaging in regular physical activity (at least 150 minutes of moderate exercise per week), maintaining a healthy weight, limiting alcohol, and avoiding tobacco are recommended.</li>
+                    <li>**Medical Interventions:** For those with persistent high blood pressure, medications such as diuretics, beta-blockers, and newer drugs like lorundrostat may be prescribed. Regular monitoring, including 24-hour ambulatory blood pressure monitoring (ABPM), is crucial.</li>
+                </ul>
+
+                <h4 class="text-xl font-semibold mb-3 text-gray-800">Conclusion</h4>
+                <p class="text-gray-700 mb-4">Blood pressure management is a dynamic field with evolving guidelines and treatments. The 2024 ESC guidelines provide current targets, while 2025 research offers new therapeutic options and reinforces lifestyle interventions. For personalized advice, consulting healthcare professionals and utilizing resources from the ESC, AHA, and CDC is recommended.</p>
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-gray-200">
+                <h3 class="text-2xl font-bold mb-4 text-center text-gray-800">Key Citations</h3>
+                <ul class="list-disc list-inside text-gray-700 space-y-2 max-w-4xl mx-auto">
+                    <li><a href="https://www.escardio.org/Guidelines/Clinical-Practice-Guidelines/Elevated-Blood-Pressure-and-Hypertension" class="text-blue-600 hover:underline" target="_blank">2024 ESC Hypertension Guidelines</a></li>
+                    <li><a href="https://professional.heart.org/en/meetings/hypertension" class="text-blue-600 hover:underline" target="_blank">Hypertension Scientific Sessions 2025</a></li>
+                    <li><a href="https://www.cdc.gov/high-blood-pressure/data-research/facts-stats/index.html" class="text-blue-600 hover:underline" target="_blank">High Blood Pressure Facts (CDC)</a></li>
+                    <li><a href="https://health.ucsd.edu/news/press-releases/2025-04-24-study-potential-therapy-for-uncontrolled-hypertension/" class="text-blue-600 hover:underline" target="_blank">Potential Therapy for Uncontrolled Hypertension (UCSD)</a></li>
+                    <li><a href="https://pubmed.ncbi.nlm.nih.gov/39886769/" class="text-blue-600 hover:underline" target="_blank">Long-Term Blood Pressure Trends (PubMed)</a></li>
+                    <li><a href="https://www.sciencedaily.com/releases/2025/05/250528131544.htm" class="text-blue-600 hover:underline" target="_blank">New injection could help millions with high blood pressure (ScienceDaily)</a></li>
+                    <li><a href="https://www.nature.com/articles/s41440-024-02095-7" class="text-blue-600 hover:underline" target="_blank">Hypertension Research Initiatives 2025 (Nature)</a></li>
+                    <li><a href="https://newsroom.wakehealth.edu/news-releases/2025/01/study-finds-intensive-blood-pressure-control-reduces-risk-of-cognitive-impairment" class="text-blue-600 hover:underline" target="_blank">Intensive BP Control and Cognitive Impairment (Wake Forest)</a></li>
+                    <li><a href="https://www.nhlbi.nih.gov/news/2025/nih-supported-dash-diet-named-best-heart-healthy-diet-and-best-diet-high-blood-pressure" class="text-blue-600 hover:underline" target="_blank">DASH Diet Recognition (NHLBI)</a></li>
+                    <li><a href="https://www.usnews.com/news/health-news/articles/2025-05-05/new-drug-could-quell-uncontrolled-high-blood-pressure" class="text-blue-600 hover:underline" target="_blank">New Drug for High Blood Pressure (U.S. News)</a></li>
+                    <li><a href="https://www.betterhealth.vic.gov.au/health/conditionsandtreatments/blood-pressure" class="text-blue-600 hover:underline" target="_blank">Blood Pressure Management (Better Health Channel)</a></li>
+                    <li><a href="https://www.nhs.uk/conditions/blood-pressure-test/" class="text-blue-600 hover:underline" target="_blank">NHS Blood Pressure Test</a></li>
+                </ul>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-800 text-white mt-12 py-6">
+        <div class="container mx-auto px-4 text-center flex flex-col md:flex-row justify-between items-center">
+            <p>&copy; 2025 Interactive Health Guides. All rights reserved.</p>
+            <p class="text-sm text-gray-400 mt-2 md:mt-0 md:ml-4">This application is for informational purposes only and does not constitute medical advice. Always consult with a qualified healthcare professional for diagnosis and treatment.</p>
+            
+            <div class="mt-6 md:mt-0 md:ml-auto text-left md:text-right space-y-4">
+                <div>
+                    <h4 class="font-bold text-lg mb-2">Vishal Hospital</h4>
+                    <p class="text-sm">Address: Vishal hospital, Kailashwadi Main Road, opposite Taluka Polish Choki, Junction Plot, Rajkot, Gujarat 360001</p>
+                    <p class="text-sm">Mobile: <a href="tel:9228105245" class="text-blue-300 hover:underline">9228105245</a></p>
+                    <p class="text-sm">Landline: <a href="tel:02812450408" class="text-blue-300 hover:underline">0281-2450408</a></p>
+                    <p class="text-sm">Website: <a href="https://vishalhospitalrajkot.github.io/" target="_blank" class="text-blue-300 hover:underline">vishalhospitalrajkot.github.io</a></p>
+                </div>
+                <div class="mt-4">
+                    <h4 class="font-bold text-lg mb-2">Vishal Banquet Hall</h4>
+                    <p class="text-sm">Address: Vishal Banquet Hall, Gaya-Dobhi Rd, Musatpura, Bihar 823004</p>
+                    <p class="text-sm">Mobile: <a href="tel:9228105245" class="text-blue-300 hover:underline">9228105245</a></p>
+                    <p class="text-sm">Website: <a href="https://vishalbanquethall1.github.io/" target="_blank" class="text-blue-300 hover:underline">vishalbanquethall1.github.io</a></p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const data = {
+                categories: [
+                    { label: 'Normal', systolic: '< 130 (<140 for 65-79)', diastolic: '< 80', color: '#10b981', info: 'Your blood pressure is in the healthy range according to 2024 ESC guidelines. Maintain or adopt a healthy lifestyle.', fullText: 'A blood pressure reading of less than 130/80 mm Hg is considered normal for individuals under 65 years. For those aged 65–79 years, a target of less than 140/80 mm Hg is considered normal. At this level, you have a much lower risk of heart disease and stroke. The best course of action is to stick with heart-healthy habits, like following a balanced diet and getting regular exercise.'},
+                    { label: 'Elevated (Prehypertension)', systolic: '120–129', diastolic: '< 80', color: '#f59e0b', info: 'You are at risk for developing high blood pressure. Lifestyle changes are strongly recommended to prevent progression.', fullText: 'Elevated blood pressure is a systolic pressure ranging from 120 to 129 mm Hg and a diastolic pressure below 80 mm Hg. People with elevated blood pressure are likely to develop high blood pressure unless steps are taken to control the condition. This is a crucial time for implementing lifestyle modifications according to 2024 ESC guidelines.' },
+                    { label: 'Hypertension Stage 1', systolic: '130–139', diastolic: '80–89', color: '#ef4444', info: 'Lifestyle changes are advised, and medication may be recommended based on your risk. Consistent readings in this range indicate hypertension.', fullText: 'Hypertension Stage 1 is a systolic pressure ranging from 130 to 139 mm Hg or a diastolic pressure ranging from 80 to 89 mm Hg. At this stage, doctors are likely to prescribe lifestyle changes and may consider adding blood pressure medication based on your risk of atherosclerotic cardiovascular disease (ASCVD), such as heart attack and stroke. According to many guidelines, hypertension is diagnosed if repeat readings on different days are ≥140/90 mmHg, but newer guidelines like ESC (2024) often use ≥130/80 mmHg for diagnosis consideration.' },
+                    { label: 'Hypertension Stage 2', systolic: '≥ 140', diastolic: '≥ 90', color: '#b91c1c', info: 'Lifestyle changes and medication are strongly recommended. This stage indicates more severe hypertension.', fullText: 'Hypertension Stage 2 is when blood pressure is consistently 140/90 mm Hg or higher. At this stage, doctors are likely to prescribe a combination of blood pressure medications and lifestyle changes. Values above in stage 2 (≥140/90) indicate more severe hypertension, per 2024 ESC guidelines and others.' },
+                    { label: 'Hypertensive Crisis', systolic: '> 180', diastolic: '> 120', color: '#7f1d1d', info: 'Seek emergency medical help immediately. This is a medical emergency.', fullText: 'A hypertensive crisis is a blood pressure reading higher than 180/120 mm Hg. This situation requires immediate medical attention. If you have symptoms like chest pain, shortness of breath, numbness, or vision changes, call 911 (or your local emergency number). This is a life-threatening emergency.' },
+                    { label: 'Hypotension', systolic: '< 90', diastolic: '< 60', color: '#60a5fa', info: 'Low blood pressure. Treatment is usually only needed if you have symptoms like dizziness or fainting. Consult a doctor if symptomatic.', fullText: 'Hypotension is a blood pressure reading lower than 90/60 mm Hg. For many people, it causes no problems. However, if accompanied by symptoms like dizziness, fainting, or fatigue, it\'s important to see a doctor to determine the underlying cause. "Normal" blood pressure for an individual varies.' }
+                ],
+                highBPRiskFactors: [
+                    { title: 'Primary (Essential) Hypertension', content: 'Most hypertension (≈90–95%) has no single identifiable cause. It tends to develop gradually over many years.' },
+                    { title: 'Secondary Hypertension', content: 'Caused by an underlying condition, such as kidney disease, endocrine disorders (e.g., hyperthyroidism, Cushing’s syndrome), or certain medications. Treating the underlying condition often resolves the hypertension.' },
+                    { title: 'Age', content: 'The risk of high blood pressure increases as you get older.' },
+                    { title: 'Family History & Ethnicity', content: 'High blood pressure tends to run in families. People of African or South Asian descent often have a higher risk.' },
+                    { title: 'Obesity/Overweight', content: 'Excess weight requires more blood to supply oxygen and nutrients to your tissues, which increases pressure on artery walls.' },
+                    { title: 'Physical Inactivity', content: 'Lack of exercise increases the risk of being overweight and can lead to higher heart rates.' },
+                    { title: 'High Dietary Salt Intake', content: 'Too much sodium can cause your body to retain fluid, increasing blood pressure. The American Heart Association recommends ≤2300 mg sodium/day (ideally ≤1500 mg).' },
+                    { title: 'Excessive Alcohol Use', content: 'Drinking too much alcohol can raise blood pressure over time.' },
+                    { title: 'Smoking/Tobacco Use', content: 'Smoking and vaping temporarily raise blood pressure and damage artery walls over time.' },
+                    { title: 'Unhealthy Diet', content: 'Diets high in saturated and trans fats, cholesterol, and processed foods contribute to hypertension.' },
+                    { title: 'Chronic Stress', content: 'High levels of stress can lead to a temporary increase in blood pressure. Stress-related habits like overeating or smoking can also be a factor.' },
+                    { title: 'Chronic Conditions', content: 'Conditions like kidney disease, diabetes, and sleep apnea can increase your risk. Metabolic risk factors (diabetes, high cholesterol) often coexist with hypertension.' }
+                ],
+                lowBPCauses: [
+                    { title: 'Dehydration', content: 'Not drinking enough fluids from vomiting, diarrhea, fever, or diuretic use can cause blood volume to decrease.' },
+                    { title: 'Blood Loss', content: 'Losing a lot of blood from an injury or internal bleeding causes a sharp drop in blood pressure.' },
+                    { title: 'Pregnancy', content: 'A woman\'s circulatory system expands rapidly during pregnancy, which can cause blood pressure to drop.' },
+                    { title: 'Heart Disorders', content: 'Conditions like heart attack, heart failure, heart valve problems, or a very slow heart rate can significantly lower blood pressure.' },
+                    { title: 'Hormonal Issues', content: 'Conditions like Addison’s disease, thyroid problems, or severe hypoglycemia (including diabetes) can cause hypotension.'},
+                    { title: 'Severe Infections (Sepsis)', content: 'When an infection enters the bloodstream, it can lead to a life-threatening drop in blood pressure called septic shock.'},
+                    { title: 'Severe Allergic Reactions (Anaphylaxis)', content: 'Can trigger life-threatening drops in blood pressure.'},
+                    { title: 'Certain Medications', content: 'Notably all antihypertensives (diuretics, ACE inhibitors, beta-blockers), Parkinson’s drugs, antidepressants, and vasodilators.'}
+                ],
+                lifestyles: [
+                    { title: 'Healthy Diet (DASH)', content: 'Follow the DASH diet (fruits, vegetables, low-fat dairy, whole grains, lean protein). Can lower BP by up to 11 mmHg.', icon: '🥗' },
+                    { title: 'Reduce Sodium', content: 'Aim for less than 2,300 mg sodium/day (ideally ≤1,500 mg). Can lower BP by 5-6 mmHg.', icon: '🧂' },
+                    { title: 'Regular Exercise', content: 'At least 150 minutes/week of moderate aerobic physical activity. Can lower BP by 5-8 mmHg.', icon: '🏃‍♀️' },
+                    { title: 'Lose Excess Weight', content: 'Losing just 1kg (2.2 lbs) can lower BP by about 1 mmHg. Even modest weight loss (5–10%) can reduce BP.', icon: '⚖️' },
+                    { title: 'Limit Alcohol', content: 'Moderation is key (up to 1 drink/day for women, 2 for men). Heavy drinking raises blood pressure.', icon: '🍷' },
+                    { title: 'Quit Tobacco', content: 'Quitting improves your overall health and blood vessel condition, preventing acute and chronic BP rises.', icon: '🚭' },
+                    { title: 'Get Good Sleep', content: 'Aim for 7-9 hours per night. Poor sleep is linked to hypertension.', icon: '😴' },
+                    { title: 'Manage Stress', content: 'Chronic stress can contribute to hypertension; practice relaxation techniques like mindfulness or deep breathing.', icon: '🧘' },
+                    { title: 'Adequate Potassium', content: 'Adequate potassium intake helps balance sodium levels in your cells, contributing to lower blood pressure.', icon: '🍌' }
+                ],
+                medications: [
+                    { name: 'Diuretics (Water Pills)', description: 'Help the kidneys remove excess sodium and water from the body, reducing blood volume.' },
+                    { name: 'ACE Inhibitors', description: 'Help relax blood vessels by blocking the formation of a natural chemical that narrows them.' },
+                    { name: 'ARBs (Angiotensin Receptor Blockers)', description: 'Block the action, not the formation, of the chemical that narrows blood vessels.' },
+                    { name: 'Calcium Channel Blockers', description: 'Help relax the muscles of your blood vessels. Some also slow your heart rate.' },
+                    { name: 'Beta-blockers', description: 'Work by making the heart beat slower and with less force, which lowers blood pressure. Often used for specific heart conditions.' }
+                ],
+                recentDevelopments: [
+                    { title: 'New Drug (Lorundrostat)', details: 'Reduces systolic BP by 15 points compared to 7-point placebo reduction, showing promise for uncontrolled hypertension.'},
+                    { title: 'Six-Month Injection', details: 'A new clinical trial in May 2025 showed that a six-month injection could lead to meaningful blood pressure reductions, potentially revolutionizing treatment approaches.'},
+                    { title: 'Remote Monitoring Success', details: 'Research published in 2025 found that participants in a remote hypertension program maintained goal systolic blood pressure in 90% of cases up to 42 months post-enrollment.'},
+                    { title: 'DASH Diet Recognition', details: 'Named the "Best Heart-Healthy Diet" and "Best Diet for High Blood Pressure" in January 2025, with multiple studies confirming its benefits.'},
+                    { title: 'Cognitive Benefits', details: 'A January 2025 study showed that intensive blood pressure control for 3.5 years reduces the risk of cognitive impairment.'},
+                    { title: 'Global Research Initiatives', details: 'Hypertension Research added new themes in 2025, including "implementation hypertension" and "morning hypertension," focusing on practical application.'}
+                ]
+            };
+
+            const checkBpBtn = document.getElementById('check-bp-btn');
+
+            function getCategory(systolic, diastolic) {
+                // Hypertensive Crisis takes precedence
+                if (systolic > 180 || diastolic > 120) return data.categories.find(c => c.label === 'Hypertensive Crisis');
+                
+                // Hypotension check (lowest priority if not crisis, as it's typically lower than normal)
+                if (systolic < 90 || diastolic < 60) return data.categories.find(c => c.label === 'Hypotension');
+
+                // Hypertension Stage 2
+                if (systolic >= 140 || diastolic >= 90) return data.categories.find(c => c.label === 'Hypertension Stage 2');
+                
+                // Hypertension Stage 1
+                if (systolic >= 130 || diastolic >= 80) return data.categories.find(c => c.label === 'Hypertension Stage 1');
+                
+                // Elevated
+                if (systolic >= 120 && diastolic < 80) return data.categories.find(c => c.label === 'Elevated (Prehypertension)'); // Use full label here
+                
+                // Normal (if none of the above)
+                return data.categories.find(c => c.label === 'Normal');
+            }
+
+            checkBpBtn.addEventListener('click', () => {
+                const systolicInput = document.getElementById('systolic');
+                const diastolicInput = document.getElementById('diastolic');
+                const resultDiv = document.getElementById('bp-result');
+                const systolic = parseInt(systolicInput.value);
+                const diastolic = parseInt(diastolicInput.value);
+
+                if (isNaN(systolic) || isNaN(diastolic) || systolic <= 0 || diastolic <= 0) {
+                    resultDiv.textContent = 'Please enter valid positive numbers for both systolic and diastolic readings.';
+                    resultDiv.className = 'mt-6 text-center text-lg font-medium p-4 rounded-lg bg-yellow-100 text-yellow-800';
+                    resultDiv.style.display = 'block';
+                    return;
+                }
+
+                const category = getCategory(systolic, diastolic);
+                resultDiv.innerHTML = `<span class="font-bold">${category.label}:</span> ${category.info}`;
+                
+                let colorClass;
+                if (category.label.includes('Crisis')) colorClass = 'bg-red-800 text-white';
+                else if (category.label.includes('Stage')) colorClass = 'bg-red-200 text-red-800';
+                else if (category.label.includes('Elevated')) colorClass = 'bg-yellow-100 text-yellow-800';
+                else if (category.label.includes('Hypotension')) colorClass = 'bg-blue-100 text-blue-800';
+                else colorClass = 'bg-green-100 text-green-800';
+                
+                resultDiv.className = `mt-6 text-center text-lg font-medium p-4 rounded-lg transition-all duration-300 ${colorClass}`;
+                resultDiv.style.display = 'block';
+            });
+
+            const bpChartCtx = document.getElementById('bpChart').getContext('2d');
+            const infoTitle = document.getElementById('info-title');
+            const infoText = document.getElementById('info-text');
+
+            const bpChart = new Chart(bpChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.categories.map(c => c.label),
+                    datasets: [{
+                        label: 'Systolic Range (mm Hg)',
+                        data: [119, 129, 139, 140, 181, 89], // Representative values for bar lengths
+                        backgroundColor: data.categories.map(c => c.color),
+                        borderColor: data.categories.map(c => c.color),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let category = data.categories[context.dataIndex];
+                                    const wrappedLabel = category.label.length > 16 ? category.label.match(/.{1,16}/g).join('\n') : category.label;
+                                    return `${wrappedLabel}: Systolic: ${category.systolic}, Diastolic: ${category.diastolic}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Blood Pressure (mm Hg)'
+                            },
+                            beginAtZero: true
+                        },
+                        y: {
+                            ticks: {
+                                autoSkip: false,
+                                callback: function(value, index, ticks) {
+                                    let label = this.getLabelForValue(value);
+                                    return label.length > 16 ? label.match(/.{1,16}/g).join('\n') : label;
+                                }
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const selectedCategory = data.categories[index];
+                            infoTitle.textContent = selectedCategory.label;
+                            infoText.textContent = selectedCategory.fullText;
+                            infoTitle.style.color = selectedCategory.color;
+                            document.getElementById('chart-info').style.borderColor = selectedCategory.color;
+                        }
+                    }
+                }
+            });
+
+            function createAccordionItem(parent, item) {
+                const button = document.createElement('button');
+                button.className = 'accordion-button w-full text-left p-4 bg-gray-100 hover:bg-gray-200 rounded-lg font-semibold flex justify-between items-center transition';
+                button.innerHTML = `<span>${item.title || item.name}</span> <span class="accordion-icon transform transition-transform duration-300">▼</span>`;
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'accordion-content bg-gray-50 p-4 rounded-b-lg';
+                contentDiv.innerHTML = `<p>${item.content || item.description}</p>`;
+
+                button.addEventListener('click', () => {
+                    const isActive = button.classList.contains('active');
+                    
+                    parent.querySelectorAll('.accordion-button').forEach(btn => {
+                        if (btn !== button) {
+                            btn.classList.remove('active');
+                            btn.nextElementSibling.style.maxHeight = '0px';
+                            btn.querySelector('.accordion-icon').style.transform = 'rotate(0deg)';
+                        }
+                    });
+
+                    if (!isActive) {
+                        button.classList.add('active');
+                        contentDiv.style.maxHeight = contentDiv.scrollHeight + 'px';
+                        button.querySelector('.accordion-icon').style.transform = 'rotate(180deg)';
+                    } else {
+                        button.classList.remove('active');
+                        contentDiv.style.maxHeight = '0px';
+                        button.querySelector('.accordion-icon').style.transform = 'rotate(0deg)';
+                    }
+                });
+                parent.appendChild(button);
+                parent.appendChild(contentDiv);
+            }
+            
+            const highBpRiskFactorsAccordion = document.getElementById('high-bp-risk-factors-accordion');
+            data.highBPRiskFactors.forEach((item) => createAccordionItem(highBpRiskFactorsAccordion, item));
+
+            const lowBpCausesAccordion = document.getElementById('low-bp-causes-accordion');
+            data.lowBPCauses.forEach((item) => createAccordionItem(lowBpCausesAccordion, item));
+            
+            const lifestyleGrid = document.getElementById('lifestyle-grid');
+            data.lifestyles.forEach(item => {
+                lifestyleGrid.innerHTML += `
+                    <div class="info-card bg-green-50 p-5 rounded-lg border border-green-200 text-center">
+                        <div class="text-4xl mb-3">${item.icon}</div>
+                        <h4 class="text-lg font-bold text-green-800">${item.title}</h4>
+                        <p class="text-gray-600 mt-1">${item.content}</p>
+                    </div>`;
+            });
+
+            const medicationAccordion = document.getElementById('medication-accordion');
+            data.medications.forEach((item) => createAccordionItem(medicationAccordion, item));
+        });
+    </script>
+</body>
+</html>
